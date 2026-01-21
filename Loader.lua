@@ -21,7 +21,7 @@ local delfile = delfile or function(file)
 end
 
 local ROOT = "Proton-Main"
-local BASE_URL = "https://raw.githubusercontent.com/anon1ymousUser/Proton/"
+local BASE_URL = "https://raw.githubusercontent.com/itziceless/ProtonTesting/"
 local WATERMARK = "-- Proton cache watermark (auto-removed on updates)\n"
 
 local function ensureFolder(path)
@@ -73,7 +73,7 @@ end
 if not shared.ProtonDeveloper then
 	local commit = "main"
 	local suc, res = pcall(function()
-		return game:HttpGet("https://github.com/anon1ymousUser/Proton", true)
+		return game:HttpGet("https://github.com/itziceless/ProtonTesting", true)
 	end)
 
 	if suc then
