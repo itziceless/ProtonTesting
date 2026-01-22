@@ -99,6 +99,35 @@ end
 
 local commit = isfile(ROOT.."/Profiles/commit.txt") and readfile(ROOT.."/Profiles/commit.txt") or "main"
 
+local ASSETS = {
+    "Bolt.png",
+    "Check.png",
+    "Close.png",
+    "Diamond.png",
+    "Error.png",
+	"Home.png",
+	"Info.png",
+    "Leaf.png",
+    "Maximize.png",
+    "Minimize.png",
+    "Person.png",
+	"Rocket.png",
+	"Search.png",
+    "Settings.png",
+    "Star.png",
+    "Sucess.png",
+    "Warning.png",
+	"World.png"
+}
+
+for _, fileName in ipairs(ASSETS) do
+    local path = ROOT.."/Assets/"..fileName
+    local url = BASE_URL..commit.."/Assets/"..fileName
+    if not isfile(path) then
+        pcall(downloadFile, path, url)
+    end
+end
+
 local loaderSource = getFile(
 	ROOT.."/Loader.lua",
 	BASE_URL..commit.."/Loader.lua"
