@@ -117,7 +117,8 @@ local ASSETS = {
     "Star.png",
     "Sucess.png",
     "Warning.png",
-	"World.png"
+	"World.png",
+	"ProtonLogo.png"
 }
 
 for _, fileName in ipairs(ASSETS) do
