@@ -3,13 +3,21 @@ local api = {
 	Modules = {},
 	Keybind = {"RightShift"},
 	Loaded = false,
-	_ModuleIndex = {}
+	Open = true,
+	_ModuleIndex = {},
+	Version = '1.0',
+	Place = game.PlaceId,
+	ConfigSystem = {}
 }
 
 local TweenService = game:GetService("TweenService")
+local TextService = game:GetService("TextService")
 local InputService = game:GetService("UserInputService")
 local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 local lplr = Players.LocalPlayer
+
+local ROOT = "Proton-Main"
 
 local Color = {}
 local Pallet = {
@@ -27,6 +35,24 @@ local Pallet = {
 	Dot = Color3.fromRGB(245, 245, 245),
 	Font = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Medium)
 }
+
+api.ConfigSystem.CanSave = true
+local Config = {}
+local FilePath = ROOT.."/Profiles/" .. api.Place .. ".json"
+function api.ConfigSystem:Save_Config()
+	if not api.ConfigSystem.CanSave then
+		return
+	end
+	if isfile(FilePath) then
+		delfile(FilePath)
+	end
+	writefile(FilePath, HttpService:JSONEncode(Config))
+end
+function api.ConfigSystem:Load_Config()
+	if isfile(FilePath) then
+		Config = HttpService:JSONDecode(readfile(FilePath))
+	end
+end
 
 function Color.Dark(col, num)
 	local h, s, v = col:ToHSV()
@@ -85,16 +111,46 @@ HeaderFix.Position = UDim2.new(0, 0, 0.5, 0)
 HeaderFix.BorderSizePixel = 0
 HeaderFix.BackgroundColor3 = Pallet.Panel
 
+local HeaderLogo = Instance.new("ImageLabel")
+HeaderLogo.Parent = Header
+HeaderLogo.Size = UDim2.new(0, 25, 0, 25)
+HeaderLogo.Position = UDim2.new(0, 15, 0, 10)
+HeaderLogo.BackgroundTransparency = 1
+HeaderLogo.Image = getcustomasset(ROOT.."/Assets/ProtonLogo.png")
+
 local HeaderText = Instance.new("TextLabel")
 HeaderText.Parent = Header
 HeaderText.Size = UDim2.new(1, -120, 1, 0)
-HeaderText.Position = UDim2.new(0, 20, 0, 0)
+HeaderText.Position = UDim2.new(0, 50, 0, 0)
 HeaderText.BackgroundTransparency = 1
-HeaderText.Text = "Home"
+HeaderText.Text = "Proton"
 HeaderText.FontFace = Pallet.Font
-HeaderText.TextSize = 15
+HeaderText.TextSize = 18
 HeaderText.TextColor3 = Pallet.TextPrimary
 HeaderText.TextXAlignment = Enum.TextXAlignment.Left
+
+local HeaderVersion = Instance.new("TextLabel")
+HeaderVersion.Parent = Header
+HeaderVersion.Size = UDim2.new(0, 35, 0, 20)
+HeaderVersion.Position = UDim2.new(0, 110, 0.5, 0)
+HeaderVersion.AnchorPoint = Vector2.new(0, 0.5)
+HeaderVersion.BackgroundColor3 = Pallet.PanelInner
+HeaderVersion.Text = "BETA"
+HeaderVersion.FontFace = Pallet.Font
+HeaderVersion.TextSize = 12
+HeaderVersion.TextColor3 = Pallet.TextSecondary
+HeaderVersion.TextXAlignment = Enum.TextXAlignment.Center
+Corner(HeaderVersion, UDim.new(0, 5))
+
+local MobileButton = Instance.new("ImageButton")
+MobileButton.Parent = Main
+MobileButton.Size = UDim2.new(0, 43, 0, 43)
+MobileButton.Position = UDim2.new(0, 218, 0, -45)
+MobileButton.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+MobileButton.BackgroundTransparency = 0.2
+MobileButton.Visible = false
+MobileButton.Image = getcustomasset(ROOT.."/Assets/ProtonLogo.png")
+Corner(MobileButton, UDim.new(1, 0))
 
 local Controls = Instance.new("Frame")
 Controls.Parent = Header
@@ -105,26 +161,95 @@ Controls.BackgroundTransparency = 1
 local function Control(image, x, callback)
 	local b = Instance.new("ImageButton")
 	b.Parent = Controls
-	b.Size = UDim2.new(0, 26, 0, 26)
+	b.Size = UDim2.new(0, 18, 0, 18)
 	b.Position = UDim2.new(0, x, 0.5, 0)
 	b.AnchorPoint = Vector2.new(0, 0.5)
 	b.Image = image
-	b.BackgroundColor3 = Pallet.PanelInner
+	b.BackgroundTransparency = 1
 	Corner(b, UDim.new(1, 0))
 	b.MouseButton1Click:Connect(callback)
 end
 
-Control("rbxassetid://96248178095850", 0, function()
+local Busy = false
+
+local function ToggleMenu()
+	if Busy then return end
+	Busy = true
+
 	if Minimized then
-		Tween(Menu, { Size = NormalSize })
+		Menu.Visible = true
+		Tween(Menu, { Size = NormalSize, BackgroundTransparency = 0 })
+		api.Open = true
+		Minimized = false
+		api:Notify({
+			Title = "Proton",
+			Description = "Proton menu opened.",
+			Severity = "success",
+			Duration = 2,
+		})
 	else
 		NormalSize = Menu.Size
-		Tween(Menu, { Size = UDim2.new(Menu.Size.X.Scale, Menu.Size.X.Offset, 0, 46) })
+		Tween(Menu, { Size = UDim2.new(Menu.Size.X.Scale, Menu.Size.X.Offset, 0, 0), BackgroundTransparency = 1 })
+		task.delay(0.15, function()
+			Menu.Visible = false
+			api.Open = false
+			api:Notify({
+				Title = "Proton",
+				Description = "Proton menu closed, press "..table.concat(api.Keybind, ", ").." to open the UI again.",
+				Severity = "error",
+				Duration = 2,
+			})
+		end)
+		Minimized = true
 	end
+
+	task.delay(0.25, function()
+		Busy = false
+	end)
+end
+
+MobileButton.MouseButton1Click:Connect(function()  
+	ToggleMenu()
+end)
+
+Control(getcustomasset(ROOT.."/Assets/Minimize.png"), 0, function()
+	if Minimized then
+		Menu.Visible = true
+		Tween(Menu, {Size = NormalSize, BackgroundTransparency = 0})
+		api.Open = true
+		api:Notify({
+			Title = "Proton",
+			Description = "Proton menu opened.",
+			Severity = "success",
+			Duration = 2,
+		})
+	else
+		NormalSize = Menu.Size
+
+		Tween(Menu, {Size = UDim2.new(Menu.Size.X.Scale, Menu.Size.X.Offset, 0, 0), BackgroundTransparency = 1 })
+		task.delay(0.15, function()
+			Menu.Visible = false
+			api.Open = false
+			api:Notify({
+				Title = "Proton",
+				Description = "Proton menu closed, press "..table.concat(api.Keybind, ", ").." to open the UI again.",
+				Severity = "error",
+				Duration = 2,
+			})
+		end)
+	end
+
 	Minimized = not Minimized
 end)
 
-Control("rbxassetid://96248178095850", 32, function()
+InputService.InputBegan:Connect(function(input, gp)
+	if gp then return end
+	if input.KeyCode == Enum.KeyCode.RightShift then
+		ToggleMenu()
+	end
+end)
+
+Control(getcustomasset(ROOT.."/Assets/Maximize.png"), 32, function()
 	if Maximized then
 		Tween(Menu, { Size = NormalSize, Position = UDim2.fromScale(0.5, 0.5) })
 	else
@@ -134,8 +259,8 @@ Control("rbxassetid://96248178095850", 32, function()
 	Maximized = not Maximized
 end)
 
-Control("rbxassetid://96248178095850", 64, function()
-	Main:Destroy()
+Control(getcustomasset(ROOT.."/Assets/Close.png"), 64, function()
+	game:GetService("TeleportService"):Teleport(game.PlaceId, game.Players.LocalPlayer, game:GetService("TeleportService"):GetLocalPlayerTeleportData())
 end)
 
 local Sidebar = Instance.new("Frame")
@@ -207,30 +332,32 @@ Holder.BackgroundTransparency = 1
 local STACK_Y = 0
 local HEIGHT = 78
 local GAP = 10
+local BASE_Y = 0
+local Notifications = {}
 
 local SeverityThemes = {
 	info = {
 		Bg = Color3.fromRGB(30, 38, 48),
 		Accent = Color3.fromRGB(90, 140, 200),
-		Image = "",
+		Image = getcustomasset(ROOT.."/Assets/Info.png"),
 		Sound = "rbxassetid://9118828566"
 	},
 	success = {
 		Bg = Color3.fromRGB(32, 46, 38),
 		Accent = Color3.fromRGB(90, 200, 140),
-		Image = "",
+		Image = getcustomasset(ROOT.."/Assets/Success.png"),
 		Sound = "rbxassetid://9118826045"
 	},
 	warning = {
 		Bg = Color3.fromRGB(48, 42, 30),
 		Accent = Color3.fromRGB(240, 180, 70),
-		Image = "",
-		Sound = "rbxassetid://9118827783"
+		Image = getcustomasset(ROOT.."/Assets/Warning.png"),
+		Sound = "rbxassetid://9118829361"
 	},
 	error = {
 		Bg = Color3.fromRGB(48, 30, 30),
 		Accent = Color3.fromRGB(230, 80, 80),
-		Image = "",
+		Image = getcustomasset(ROOT.."/Assets/Error.png"),
 		Sound = "rbxassetid://9118829361"
 	}
 }
@@ -241,8 +368,20 @@ function api:Notify(data)
 	local hovered = false
 	local alive = true
 
-	local yOffset = STACK_Y
-	STACK_Y += HEIGHT + GAP
+	local function Reflow()
+		for i, card in ipairs(Notifications) do
+			local targetY = BASE_Y + (i - 1) * (HEIGHT + GAP)
+
+			TweenService:Create(
+				card,
+				TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+				{ Position = UDim2.new(1, 0, 0, targetY) }
+			):Play()
+		end
+	end
+
+	local index = #Notifications + 1
+	local yOffset = BASE_Y + (index - 1) * (HEIGHT + GAP)
 
 	local Card = Instance.new("Frame")
 	Card.Parent = Holder
@@ -250,8 +389,10 @@ function api:Notify(data)
 	Card.AnchorPoint = Vector2.new(1, 0)
 	Card.Position = UDim2.new(1, 180, 0, yOffset)
 	Card.BackgroundColor3 = theme.Bg
-	Corner(Card, UDim.new(0, 12))
 	Card.ClipsDescendants = true
+	Corner(Card, UDim.new(0, 12))
+
+	table.insert(Notifications, Card)
 
 	local Sound = Instance.new("Sound")
 	Sound.Parent = Card
@@ -259,20 +400,17 @@ function api:Notify(data)
 	Sound.Volume = 0.5
 	Sound:Play()
 
-	local Icon
-	if data.Icon then
-		Icon = Instance.new("ImageLabel")
-		Icon.Parent = Card
-		Icon.Size = UDim2.new(0, 24, 0, 24)
-		Icon.Position = UDim2.new(0, 14, 0, 14)
-		Icon.BackgroundTransparency = 1
-		Icon.Image = theme.Image
-	end
+	local Icon = Instance.new("ImageLabel")
+	Icon.Parent = Card
+	Icon.Size = UDim2.new(0, 24, 0, 24)
+	Icon.Position = UDim2.new(0, 14, 0, 14)
+	Icon.BackgroundTransparency = 1
+	Icon.Image = data.Icon or theme.Image
 
 	local Title = Instance.new("TextLabel")
 	Title.Parent = Card
 	Title.BackgroundTransparency = 1
-	Title.Position = UDim2.new(0, Icon and 48 or 16, 0, 10)
+	Title.Position = UDim2.new(0, 48, 0, 10)
 	Title.Size = UDim2.new(1, -70, 0, 20)
 	Title.Text = data.Title or "Notification"
 	Title.FontFace = Pallet.Font
@@ -283,7 +421,7 @@ function api:Notify(data)
 	local Desc = Instance.new("TextLabel")
 	Desc.Parent = Card
 	Desc.BackgroundTransparency = 1
-	Desc.Position = UDim2.new(0, Icon and 48 or 16, 0, 32)
+	Desc.Position = UDim2.new(0, 48, 0, 32)
 	Desc.Size = UDim2.new(1, -70, 0, 34)
 	Desc.TextWrapped = true
 	Desc.TextYAlignment = Enum.TextYAlignment.Top
@@ -306,6 +444,7 @@ function api:Notify(data)
 	Close.MouseEnter:Connect(function()
 		Close.TextColor3 = Pallet.TextPrimary
 	end)
+
 	Close.MouseLeave:Connect(function()
 		Close.TextColor3 = Pallet.TextMuted
 	end)
@@ -313,6 +452,7 @@ function api:Notify(data)
 	Card.MouseEnter:Connect(function()
 		hovered = true
 	end)
+
 	Card.MouseLeave:Connect(function()
 		hovered = false
 	end)
@@ -321,14 +461,25 @@ function api:Notify(data)
 		if not alive then return end
 		alive = false
 
+		for i, v in ipairs(Notifications) do
+			if v == Card then
+				table.remove(Notifications, i)
+				break
+			end
+		end
+
 		TweenService:Create(
 			Card,
 			TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.In),
-			{ Position = UDim2.new(1, 200, 0, yOffset), BackgroundTransparency = 1 }
+			{
+				Position = UDim2.new(1, 200, 0, Card.Position.Y.Offset),
+				BackgroundTransparency = 1
+			}
 		):Play()
 
 		task.delay(0.35, function()
 			Card:Destroy()
+			Reflow()
 		end)
 	end
 
@@ -425,8 +576,15 @@ InputService.InputEnded:Connect(function()
 	resizing = false
 end)
 
+api.ConfigSystem:Load_Config()
+
 function api:CreateCategoryTab(tabsettings)
-	local TabApi = { Enabled = false }
+
+	local TabApi = {
+		Name = tabsettings.Name,
+		Enabled = false,
+		Modules = {}
+	}
 
 	local Button = Instance.new("TextButton")
 	Button.Parent = TabButtons
@@ -445,9 +603,18 @@ function api:CreateCategoryTab(tabsettings)
 	Dot.Visible = false
 	Corner(Dot, UDim.new(1, 0))
 
+	local Icon = Instance.new("ImageLabel")
+	Icon.Parent = Button
+	Icon.Size = UDim2.new(0, 20, 0, 20)
+	Icon.Position = UDim2.new(0, 8, 0.5, 0)
+	Icon.AnchorPoint = Vector2.new(0, 0.5)
+	Icon.BackgroundTransparency = 1
+	Icon.Image = tabsettings.Icon or getcustomasset(ROOT.."/Assets/ProtonLogo.png")
+	Icon.ImageColor3 = Pallet.TextSecondary
+
 	local Label = Instance.new("TextLabel")
 	Label.Parent = Button
-	Label.Position = UDim2.new(0, 14, 0, 0)
+	Label.Position = UDim2.new(0, 33, 0, 0)
 	Label.Size = UDim2.new(1, -30, 1, 0)
 	Label.BackgroundTransparency = 1
 	Label.Text = tabsettings.Name
@@ -458,12 +625,14 @@ function api:CreateCategoryTab(tabsettings)
 
 	local Page = Instance.new("ScrollingFrame")
 	Page.Parent = TabHolder
-	Page.Size = UDim2.new(1, -20, 1, -10)
-	Page.Position = UDim2.new(0, 10, 0, 10)
+	Page.Size = UDim2.new(1, -20, 1, -18)
+	Page.Position = UDim2.new(0, 10, 0, 18)
 	Page.ScrollBarImageTransparency = 1
 	Page.ScrollBarThickness = 0
-	Page.BackgroundTransparency	= 1
+	Page.BackgroundTransparency = 1
 	Page.Visible = false
+	Page.AutomaticCanvasSize = Enum.AutomaticSize.None
+	Page.ElasticBehavior = Enum.ElasticBehavior.Never
 	Corner(Page, UDim.new(0, 12))
 
 	local PageList = Instance.new("UIListLayout")
@@ -471,7 +640,31 @@ function api:CreateCategoryTab(tabsettings)
 	PageList.SortOrder = Enum.SortOrder.LayoutOrder
 	PageList.FillDirection = Enum.FillDirection.Vertical
 	PageList.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	PageList.Padding = UDim.new(0, 1)
+	PageList.Padding = UDim.new(0, 7)
+
+	-- Resize canvas to exactly fit children
+	local function UpdateCanvas()
+		Page.CanvasSize = UDim2.fromOffset(
+			0,
+			PageList.AbsoluteContentSize.Y + PageList.Padding.Offset
+		)
+	end
+
+	PageList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(UpdateCanvas)
+	UpdateCanvas()
+
+	Page:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+		local maxY = math.max(
+			0,
+			Page.CanvasSize.Y.Offset - Page.AbsoluteWindowSize.Y
+		)
+
+		Page.CanvasPosition = Vector2.new(
+			Page.CanvasPosition.X,
+			math.clamp(Page.CanvasPosition.Y, 0, maxY)
+		)
+	end)
+
 
 	Button.MouseButton1Click:Connect(function()
 		for _, v in pairs(api.Tabs) do
@@ -484,7 +677,6 @@ function api:CreateCategoryTab(tabsettings)
 		Page.Visible = true
 		Dot.Visible = true
 		Button.BackgroundColor3 = Pallet.Selected
-		HeaderText.Text = tabsettings.Name
 	end)
 
 	TabApi.Button = Button
@@ -492,7 +684,37 @@ function api:CreateCategoryTab(tabsettings)
 	TabApi.Dot = Dot
 
 	function TabApi:CreateModule(modulesettings)
-		local ModuleApi = { Enabled = false, Open = false }
+
+		local ModuleApi = { 
+			Name = modulesettings.Name,
+			Enabled = false, 
+			Open = false,
+			Keybind = nil,
+			Settings = {}
+		}
+
+		if Config[ModuleApi.Name] == nil then
+			Config[ModuleApi.Name] = {Enabled = false, Keybind = "", Toggles = {}, Dropdowns = {}, Sliders = {}, ColorSliders = {}}
+		end
+
+		local DividerTitle = Instance.new("TextLabel")
+		DividerTitle.Parent = Page
+		DividerTitle.Size = UDim2.new(1, -25, 0, 20)
+		DividerTitle.Position = UDim2.new(0, 12, 0, -10)
+		DividerTitle.BackgroundTransparency = 1
+		DividerTitle.TextSize = 14
+		DividerTitle.TextXAlignment = Enum.TextXAlignment.Left
+		DividerTitle.TextYAlignment = Enum.TextYAlignment.Top
+		DividerTitle.FontFace = Pallet.Font
+		DividerTitle.TextColor3 = Pallet.TextSecondary
+		DividerTitle.Text = modulesettings.Title or "Unassigned"
+
+		local Divider = Instance.new("Frame")
+		Divider.Parent = DividerTitle
+		Divider.Size = UDim2.new(1, -25, 0, 1)
+		Divider.Position = UDim2.new(0, 0, 0, 17)
+		Divider.BackgroundColor3 = Pallet.Border
+		Divider.BorderSizePixel = 0
 
 		local Holder = Instance.new("Frame")
 		Holder.Parent = TabApi.Page
@@ -502,7 +724,7 @@ function api:CreateCategoryTab(tabsettings)
 
 		local Title = Instance.new("TextLabel")
 		Title.Parent = Holder
-		Title.Position = UDim2.new(0, 14, 0, 16)
+		Title.Position = UDim2.new(0, 14, 0, 10)
 		Title.Size = UDim2.new(1, -80, 0, 18)
 		Title.BackgroundTransparency = 1
 		Title.Text = modulesettings.Name
@@ -513,7 +735,7 @@ function api:CreateCategoryTab(tabsettings)
 
 		local Desc = Instance.new("TextLabel")
 		Desc.Parent = Holder
-		Desc.Position = UDim2.new(0, 12, 0, 30)
+		Desc.Position = UDim2.new(0, 15, 0, 28)
 		Desc.Size = UDim2.new(1, -80, 0, 26)
 		Desc.BackgroundTransparency = 1
 		Desc.TextWrapped = true
@@ -524,32 +746,93 @@ function api:CreateCategoryTab(tabsettings)
 		Desc.TextColor3 = Pallet.TextMuted
 		Desc.TextXAlignment = Enum.TextXAlignment.Left
 
-		local Toggle = Instance.new("TextButton")
-		Toggle.Parent = Holder
-		Toggle.Size = UDim2.new(0, 44, 0, 22)
-		Toggle.Position = UDim2.new(1, -68, 0, 18)
-		Toggle.Text = ""
-		Toggle.BackgroundColor3 = Pallet.Border
-		Corner(Toggle, UDim.new(1, 0))
+		local ToggleButton = Instance.new("TextButton")
+		ToggleButton.Parent = Holder
+		ToggleButton.Size = UDim2.new(0, 44, 0, 22)
+		ToggleButton.Position = UDim2.new(1, -68, 0, 18)
+		ToggleButton.Text = ""
+		ToggleButton.BackgroundColor3 = Pallet.Border
+		Corner(ToggleButton, UDim.new(1, 0))
 
 		local Knob = Instance.new("Frame")
-		Knob.Parent = Toggle
+		Knob.Parent = ToggleButton
 		Knob.Size = UDim2.new(0, 18, 0, 18)
 		Knob.Position = UDim2.new(0, 2, 0.5, 0)
 		Knob.AnchorPoint = Vector2.new(0, 0.5)
 		Knob.BackgroundColor3 = Pallet.TextSecondary
 		Corner(Knob, UDim.new(1, 0))
 
-		Toggle.MouseButton1Click:Connect(function()
-			ModuleApi.Enabled = not ModuleApi.Enabled
-			if ModuleApi.Enabled then
-				Tween(Toggle, { BackgroundColor3 = Pallet.Accent })
+		local KnobIcon = Instance.new("ImageLabel")
+		KnobIcon.Parent = Knob
+		KnobIcon.Size = UDim2.new(0, 10, 0, 10)
+		KnobIcon.Position = UDim2.new(0, 5, 0.5, 0)
+		KnobIcon.AnchorPoint = Vector2.new(0, 0.5)
+		KnobIcon.Image = getcustomasset(ROOT.."/Assets/Check.png")
+		KnobIcon.BackgroundTransparency = 1
+		KnobIcon.ImageColor3 = Pallet.Accent
+		KnobIcon.ImageTransparency = 1
+		Corner(KnobIcon, UDim.new(1, 0))
+
+		local function Toggle(state)
+			ModuleApi.Enabled = state
+
+			if state then
+				Tween(ToggleButton, { BackgroundColor3 = Pallet.Accent })
 				Tween(Knob, { Position = UDim2.new(1, -20, 0.5, 0) })
+
+				task.spawn(function()
+					for _, v in ipairs({0.8, 0.5, 0.3, 0}) do
+						KnobIcon.ImageTransparency = v
+						task.wait(0.05)
+					end
+				end)
+
+				if not api.Open then
+					api:Notify({
+						Title = "Enabled",
+						Description = modulesettings.Name .. " has been Enabled",
+						Severity = "success",
+						Duration = 0.5
+					})
+				end
 			else
-				Tween(Toggle, { BackgroundColor3 = Pallet.Border })
+
+				Tween(ToggleButton, { BackgroundColor3 = Pallet.Border })
 				Tween(Knob, { Position = UDim2.new(0, 2, 0.5, 0) })
+
+				task.spawn(function()
+					for _, v in ipairs({0.3, 0.5, 0.8, 1}) do
+						KnobIcon.ImageTransparency = v
+						task.wait(0.05)
+					end
+				end)
+
+				if not api.Open then
+					api:Notify({
+						Title = "Disabled",
+						Description = modulesettings.Name .. " has been Disabled",
+						Severity = "error",
+						Duration = 0.5
+					})
+				end
 			end
+
+			if typeof(modulesettings.Function) == "function" then
+				task.spawn(modulesettings.Function, state, ModuleApi)
+			end
+
+			Config[ModuleApi.Name].Enabled = state
+			task.delay(0.01, function()
+				api.ConfigSystem:Save_Config()
+			end)
+		end
+
+
+		ToggleButton.MouseButton1Click:Connect(function()
+			if Busy then return end
+			Toggle(not ModuleApi.Enabled)
 		end)
+
 
 		ModuleApi.Holder = Holder
 		table.insert(api.Modules, ModuleApi)
@@ -650,24 +933,35 @@ InputService.InputBegan:Connect(function(input, gpe)
 end)
 
 local Home = api:CreateCategoryTab({
-	Name = "Home" 
+	Name = "Home",
+	Icon = getcustomasset(ROOT.."/Assets/Home.png")
 })
 Home:CreateModule({ 
-	Name = "Combat" 
-})
-Home:CreateModule({ 
-	Name = "Combat" 
-})
-Home:CreateModule({ 
-	Name = "Combat" 
-})
-Home:CreateModule({ 
-	Name = "Settings" 
+    Title = "Testing Module Category Titles",
+	Name = "Testing Module Name" ,
+	Description = "Testing Module Description"
 })
 
+
 api:Notify({
-	Title = "Success",
-	Description = "Sucessfully loaded with 0 errors.",
-	Severity = "success",
-	Duration = 5,
+	Title = "Proton",
+	Description = "Sucessfully loaded, Welcome to Proton.",
+	Severity = "info",
+	Duration = 2.5,
 })
+
+if
+	InputService.TouchEnabled
+	and not InputService.KeyboardEnabled
+	and not InputService.MouseEnabled
+then
+	MobileButton.Visible = true 
+	api:Notify({
+		Title = "Mobile Support",
+		Description = "While we do offer mobile support, it has not been tested. Please be patient as we work on this.",
+		Severity = "warning",
+		Duration = 5,
+	})
+end
+
+return api
